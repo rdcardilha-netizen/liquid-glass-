@@ -1,0 +1,56 @@
+
+name: Build Liquid Glass Launcher
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extrair projeto mais recente
+        run: |
+          best=""
+          bt=0
+          for f in *.zip; do
+            [ -f "$f" ] || continue
+            t=$(git log -1 --format=%ct -- "$f")
+            if [ "$t" -ge "$bt" ]; then
+              bt=$t
+              best="$f"
+            fi
+          done
+          if [ -z "$best" ]; then
+            echo "Nenhum ZIP encontrado"
+            exit 1
+          fi
+          mkdir proj
+          unzip -q "$best" -d proj
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.5"
+
+      - name: Compilar APK
+        working-directory: proj
+        run: gradle :app:assembleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liquid-Glass-Launcher
+          path: proj/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
